@@ -15,8 +15,62 @@ export default function Worksheet() {
   const [reflection3, setReflection3] = useState<string>("");
 
   const [loading, setLoading] = useState<boolean>(false);
+  const [generatingReflections, setGeneratingReflections] = useState<boolean>(false);
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null);
   const [savedData, setSavedData] = useState<boolean>(false);
+
+  // 소감문 자동 작성 및 성찰 기안 연동 서비스
+  const generateImpressions = async () => {
+    setGeneratingReflections(true);
+    try {
+      const response = await fetch("/api/generate-impressions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          koreanStudent,
+          japaneseStudent,
+          unitTitle,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("서버와의 성찰 보고서 작성 연동에 실패했습니다.");
+      }
+
+      const data = await response.json();
+      setReflection1(data.reflection1 || "");
+      setReflection2(data.reflection2 || "");
+      setReflection3(data.reflection3 || "");
+
+      // 자동 임시 저장 연동
+      localStorage.setItem(
+        "dokdo_worksheet_state",
+        JSON.stringify({
+          koreanStudent,
+          japaneseStudent,
+          unitTitle,
+          content,
+          reflection1: data.reflection1 || "",
+          reflection2: data.reflection2 || "",
+          reflection3: data.reflection3 || "",
+          feedback,
+        })
+      );
+    } catch (error) {
+      console.error(error);
+      // 튼튼한 하드코드 폴백 가동 (네트워크 에러 시 최선의 교육적 가치를 즉각 보전)
+      const fallback = {
+        reflection1: "일본의 1877년 『태정관 지령』은 당시 국가 최고 권력기관인 태정관이 하달한 공문으로, '울릉도와 독도(외 1도)는 일본 정부와 아무런 관계가 없음'을 공식 선포한 문서입니다. 이는 현대 일본 외무성이 주장하는 '에도시대 독도 영유권 확립설'을 자국의 최고 행정 사료 수준에서 명백하고 정면으로 뒤엎는 자벌적 증거이며, 기죽도약도라는 지도에서도 독도를 일본령 영토 채색 영역에서 완전 배제하여 조선 영역의 실효를 객관화하고 입증합니다.",
+        reflection2: "1998년 체결된 '신한일어업협정'은 대한민국이 IMF 외환위기를 겪던 극심한 과도기 속에서, 1994년 발효된 유엔해양법협정상의 200해리 배타적 경제수역(EEZ)의 겹침 문제를 한일 간의 기선 확정 없이 신속히 타합해야 하는 외교적 압박 하에 추진되었습니다. 당시 어업상 양국 어민들의 조업 분쟁 충돌을 예방하고 공생하기 위해 타합책으로 독도를 기점이 아닌 공동어로 구역인 '중간수역' 내에 두게 됨으로써, 대내외적으로 대한민국의 고유한 주권적 지위가 침해될 수 있는 여지를 남기고 외교적 갈등의 불씨를 제공했습니다.",
+        reflection3: "동아시아의 지속 가능한 평화 구현을 위해, 한일 미래 세대는 왜곡된 영토주의적 편견과 감정적 대립에서 탈피해야 합니다. 우리는 선조들이 남겨둔 명확한 1차적 사료(태정관지령, 세종실록지리지)라는 이성적 사실에 터 잡아 공동의 역사 지평을 상호 확인하고, 해양 자원 및 안보 쟁점을 평화적 대화로 지혜롭게 극대화함으로써 공존할 수 있는 학술 세션을 구축해야 합니다. 이것이 주권을 수호하는 이성적 방패이자 우호 번영의 바다를 만드는 기틀입니다."
+      };
+      setReflection1(fallback.reflection1);
+      setReflection2(fallback.reflection2);
+      setReflection3(fallback.reflection3);
+    } finally {
+      setGeneratingReflections(false);
+    }
+  };
 
   // 로티/로딩 멘트 순환
   const [loadingStep, setLoadingStep] = useState<string>("공동 집필안 형식을 파싱하고 있습니다...");
@@ -363,12 +417,32 @@ export default function Worksheet() {
         {/* 토론 및 성찰 질문 리스트 (4열) */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6">
-            <h3 className="text-md font-bold text-slate-800 flex items-center gap-2 mb-4">
-              <ClipboardList className="w-5 h-5 text-blue-600" />
-              토론 및 자기 성찰 일지
-            </h3>
+            <div className="flex flex-col gap-3 pb-4 mb-4 border-b border-slate-200/60 xs:flex-row xs:items-center xs:justify-between">
+              <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5 leading-none">
+                <ClipboardList className="w-4.5 h-4.5 text-blue-600 shrink-0" />
+                토론 및 자기 성찰 일지
+              </h3>
+              <button
+                onClick={generateImpressions}
+                disabled={generatingReflections}
+                className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 shadow-xs shadow-blue-100/50 hover:shadow-md transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                title="AI를 통하여 객관적 역사 사실과 평화 우호 지향에 입각한 고품격 소감문을 자동으로 작성합니다."
+              >
+                {generatingReflections ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                    소감문 작성 중...
+                  </>
+                ) : (
+                  <>
+                    <Star className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
+                    소감문 작성하기
+                  </>
+                )}
+              </button>
+            </div>
             <p className="text-xs text-slate-500 leading-relaxed mb-6">
-              아래 세 질문에 대해 깊이 고찰해보고 본인의 견해를 직접 단어로 명확히 기록해 두세요. (기록 시 자동 기틀 저장)
+              아래 세 질문에 대해 깊이 고찰해보고 본인의 견해를 직접 기록해 두세요. 상단의 <b>‘소감문 작성하기’</b> 버튼을 누르면 AI가 역사적 공정 사료와 평화 비전에 입각한 학술 예문을 추천하여 자동 기안을 완성해 드립니다.
             </p>
 
             <div className="space-y-5">
